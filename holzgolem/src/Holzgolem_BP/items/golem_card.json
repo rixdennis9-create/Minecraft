@@ -1,0 +1,17 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:item": {
+    "description": {
+      "identifier": "dr:golem_card",
+      "menu_category": { "category": "items" }
+    },
+    "components": {
+      "minecraft:icon": "dr_golem_card",
+      "minecraft:display_name": { "value": "item.dr:golem_card.name" },
+      "minecraft:max_stack_size": 1,
+      "minecraft:glint": true,
+      "minecraft:should_despawn": false,
+      "minecraft:interact_button": "Golems anzeigen"
+    }
+  }
+}

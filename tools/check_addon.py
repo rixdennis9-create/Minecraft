@@ -167,6 +167,33 @@ def main(bp, rp):
                 err(f"{ident}: Geometrie hat keine Würfel")
             print(f"  {ident}: Geometrie {g['description']['identifier']} mit {len(g['bones'])} Knochen / {cubes} Würfeln")
 
+    # 5. Items: Icon muss in item_texture.json stehen und die Datei existieren
+    item_tex = {}
+    if (rp / "textures" / "item_texture.json").is_file():
+        item_tex = (load(rp / "textures" / "item_texture.json") or {}).get("texture_data", {})
+    for f in sorted((bp / "items").rglob("*.json")) if (bp / "items").is_dir() else []:
+        data = load(f) or {}
+        item = data.get("minecraft:item", {})
+        ident = item.get("description", {}).get("identifier")
+        comps = item.get("components", {})
+        icon = comps.get("minecraft:icon")
+        icon = icon.get("textures", {}).get("default") if isinstance(icon, dict) else icon
+        if not icon:
+            err(f"{ident}: kein minecraft:icon")
+        elif icon not in item_tex:
+            err(f"{ident}: Icon '{icon}' fehlt in textures/item_texture.json")
+        else:
+            tex = item_tex[icon]["textures"]
+            tex = tex[0] if isinstance(tex, list) else tex
+            if not any((rp / (tex + ext)).is_file() for ext in (".png", ".tga")):
+                err(f"{ident}: Item-Textur fehlt: {tex}")
+        name = comps.get("minecraft:display_name", {}).get("value")
+        if name and "." in name:
+            for lf, keys in lang.items():
+                if name not in keys:
+                    warnings.append(f"{ident}: Sprachschlüssel '{name}' fehlt in {lf}")
+        print(f"  {ident}: Item mit Icon {icon}")
+
     print(f"Geprüft: {bp} + {rp}")
     for w in warnings:
         print("WARNUNG:", w)

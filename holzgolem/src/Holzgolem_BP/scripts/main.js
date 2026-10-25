@@ -1,4 +1,7 @@
 import { world, system } from "@minecraft/server";
+import { findColumn, columnPositions, blockedAround, isStructureBlock, isPassable } from "./structure.js";
+import { GolemRegistry, cardText } from "./registry.js";
+import { CARD_ID, giveCard, refreshCard, isHoldingCard } from "./card.js";
 
 // ============================================================
 //  Holzgolem – Einstellungen
@@ -7,65 +10,12 @@ const GOLEM_ID = "dr:wood_golem";
 const GUARD_RADIUS = 50; // Schutzradius um den Beschwörungsort
 const LEASH_RADIUS = 64; // weiter weg -> Golem wird zurückgeholt
 
-// Kopf-Block, der den Bau "zündet" (wird zuletzt gesetzt)
-const HEAD_BLOCKS = new Set(["minecraft:carved_pumpkin", "minecraft:lit_pumpkin"]);
-
-// Welche Blöcke zählen als "Holz"? (alle Stämme/Hölzer, auch entrindet, Nether-Stängel)
-function isWood(block) {
-  const id = block?.typeId ?? "";
-  return (
-    id.endsWith("_log") ||
-    id.endsWith("_wood") ||
-    id.endsWith("_stem") ||
-    id.endsWith("_hyphae") ||
-    id === "minecraft:bamboo_block" ||
-    id === "minecraft:stripped_bamboo_block"
-  );
-}
-
-// Bauplan relativ zum Kopf (x = seitlich, y = Höhe). Wird automatisch
-// für beide Ausrichtungen (Nord-Süd und Ost-West) geprüft.
-//
-//        [K]          K = geschnitzter Kürbis (zuletzt setzen)
-//     [H][H][H]       H = Holzstamm
-//        [H]
-const PATTERN = [
-  { x: 0, y: -1 }, // Brust
-  { x: -1, y: -1 }, // linker Arm
-  { x: 1, y: -1 }, // rechter Arm
-  { x: 0, y: -2 }, // Beine
-];
-// Diese Felder müssen frei sein (sonst wäre es z. B. eine Wand)
-const MUST_BE_EMPTY = [
-  { x: -1, y: -2 },
-  { x: 1, y: -2 },
-];
-
-// ============================================================
-//  Bau erkennen
-// ============================================================
-function rel(head, axis, p) {
-  return {
-    x: head.x + (axis === "x" ? p.x : 0),
-    y: head.y + p.y,
-    z: head.z + (axis === "z" ? p.x : 0),
-  };
-}
-
-function isAirish(block) {
-  const id = block?.typeId ?? "minecraft:air";
-  return id === "minecraft:air" || id === "minecraft:short_grass" || id === "minecraft:tall_grass" || id === "minecraft:snow_layer";
-}
-
-function findStructure(dim, head) {
-  for (const axis of ["x", "z"]) {
-    const ok =
-      PATTERN.every((p) => isWood(dim.getBlock(rel(head, axis, p)))) &&
-      MUST_BE_EMPTY.every((p) => isAirish(dim.getBlock(rel(head, axis, p))));
-    if (ok) return axis;
-  }
-  return undefined;
-}
+// Bestand pro Spieler, gespeichert in World-Dynamic-Properties
+const registry = new GolemRegistry({
+  get: (k) => world.getDynamicProperty(k),
+  set: (k, v) => world.setDynamicProperty(k, v),
+  keys: () => world.getDynamicPropertyIds(),
+});
 
 function safeParticle(dim, id, loc) {
   try {
@@ -73,24 +23,104 @@ function safeParticle(dim, id, loc) {
   } catch {}
 }
 
-function summonGolem(dim, head, axis, player) {
-  // Blöcke entfernen (Kopf + Körper)
-  const all = [{ x: 0, y: 0 }, ...PATTERN];
-  for (const p of all) {
-    const pos = rel(head, axis, p);
-    safeParticle(dim, "minecraft:villager_happy", { x: pos.x + 0.5, y: pos.y + 0.5, z: pos.z + 0.5 });
-    dim.getBlock(pos)?.setType("minecraft:air");
+function onlinePlayer(pid) {
+  return world.getAllPlayers().find((p) => p.id === pid);
+}
+
+function updateCardFor(pid, redeliver = false) {
+  const player = onlinePlayer(pid);
+  if (player) refreshCard(player, registry.count(pid), registry.limit(pid), redeliver);
+}
+
+// ============================================================
+//  Bau erkennen (nur wenn ein Holzblock oder Stamm gesetzt wird)
+// ============================================================
+function typeAt(dim, x, y, z) {
+  try {
+    return dim.getBlock({ x, y, z })?.typeId;
+  } catch {
+    return undefined; // nicht geladen / außerhalb der Welt
+  }
+}
+
+function isFreeAt(dim, x, y, z) {
+  try {
+    const b = dim.getBlock({ x, y, z });
+    return !!b && (b.isAir || b.isLiquid || isPassable(b.typeId));
+  } catch {
+    return false;
+  }
+}
+
+const busy = new Set(); // Säulen, die gerade verarbeitet werden (gegen Doppel-Events)
+const posKey = (dim, p) => `${dim.id}:${p.x}:${p.y}:${p.z}`;
+
+world.afterEvents.playerPlaceBlock.subscribe((ev) => {
+  const { block, player, dimension } = ev;
+  if (!isStructureBlock(block.typeId)) return;
+  const base = findColumn((x, y, z) => typeAt(dimension, x, y, z), block.location);
+  if (!base) return;
+  const key = posKey(dimension, base);
+  if (busy.has(key)) return;
+  busy.add(key);
+  // einen Tick warten, damit die Platzierung sauber abgeschlossen ist
+  system.run(() => {
+    try {
+      trySummon(player, dimension, base);
+    } finally {
+      busy.delete(key);
+    }
+  });
+});
+
+function trySummon(player, dim, base) {
+  if (!player?.isValid) return;
+  // Bau nochmal prüfen – er könnte inzwischen verändert worden sein
+  if (!findColumn((x, y, z) => typeAt(dim, x, y, z), base)) return;
+
+  const pid = player.id;
+  const count = registry.count(pid);
+  const limit = registry.limit(pid);
+  if (count >= limit) {
+    player.onScreenDisplay.setActionBar(`§cGolem-Limit erreicht: ${count}/${limit}`);
+    player.sendMessage(`§cGolem-Limit erreicht: ${count}/${limit}. §7Dein Bauwerk bleibt stehen.`);
+    return;
   }
 
-  const spawnLoc = { x: head.x + 0.5, y: head.y - 2, z: head.z + 0.5 };
-  const golem = dim.spawnEntity(GOLEM_ID, spawnLoc);
+  const blocked = blockedAround((x, y, z) => isFreeAt(dim, x, y, z), base);
+  if (blocked.length > 0) {
+    player.onScreenDisplay.setActionBar("§cZu wenig Platz für den Holzgolem!");
+    player.sendMessage(
+      `§cZu wenig Platz: §7Rund um die unteren 3 Blöcke der Säule muss es frei sein (${blocked.length} Blöcke im Weg). Dein Bauwerk bleibt stehen.`
+    );
+    return;
+  }
+
+  const spawnLoc = { x: base.x + 0.5, y: base.y, z: base.z + 0.5 };
+  let golem;
+  try {
+    golem = dim.spawnEntity(GOLEM_ID, spawnLoc);
+  } catch (e) {
+    player.sendMessage(`§cDer Holzgolem konnte nicht erscheinen (${e}). Dein Bauwerk bleibt stehen.`);
+    return;
+  }
+
   golem.setDynamicProperty("home_x", spawnLoc.x);
   golem.setDynamicProperty("home_y", spawnLoc.y);
   golem.setDynamicProperty("home_z", spawnLoc.z);
   golem.setDynamicProperty("home_dim", dim.id);
-  golem.setDynamicProperty("owner", player?.name ?? "");
+  golem.setDynamicProperty("owner", player.name);
+  golem.setDynamicProperty("owner_id", pid);
+  registry.add(pid, player.name, golem.id, spawnLoc, dim.id);
 
-  // Effekte
+  // Bauwerk erst jetzt verbrauchen – der Golem steht schon
+  for (const pos of columnPositions(base)) {
+    safeParticle(dim, "minecraft:villager_happy", { x: pos.x + 0.5, y: pos.y + 0.5, z: pos.z + 0.5 });
+    try {
+      dim.getBlock(pos)?.setType("minecraft:air");
+    } catch {}
+  }
+
   for (let i = 0; i < 12; i++) {
     safeParticle(dim, "minecraft:villager_happy", {
       x: spawnLoc.x + (Math.random() - 0.5) * 2,
@@ -104,21 +134,101 @@ function summonGolem(dim, head, axis, player) {
     dim.playSound("random.anvil_use", spawnLoc, { volume: 0.6, pitch: 0.5 });
   } catch {}
 
-  player?.onScreenDisplay.setActionBar(`§6Ein Holzgolem erwacht! §7Er beschützt jetzt ${GUARD_RADIUS} Blöcke um diesen Ort.`);
+  const now = registry.count(pid);
+  player.onScreenDisplay.setActionBar(`§6Ein Holzgolem erwacht! §7(${now}/${limit}) Er beschützt ${GUARD_RADIUS} Blöcke um diesen Ort.`);
+
+  if (!registry.cardGiven(pid)) {
+    const where = giveCard(player, now, limit);
+    registry.setCardGiven(pid);
+    player.sendMessage(
+      where === "inventory"
+        ? "§6Du hast die §eHolzgolem-Live-Card §6erhalten! §7Halte sie in der Hand, um deinen Bestand zu sehen."
+        : "§6Dein Inventar ist voll – die §eHolzgolem-Live-Card §6liegt vor deinen Füßen."
+    );
+  } else {
+    refreshCard(player, now, limit);
+  }
 }
 
-world.afterEvents.playerPlaceBlock.subscribe((ev) => {
-  const { block, player, dimension } = ev;
-  if (!HEAD_BLOCKS.has(block.typeId)) return;
-  const head = block.location;
-  const axis = findStructure(dimension, head);
-  if (!axis) return;
-  // einen Tick warten, damit die Platzierung sauber abgeschlossen ist
-  system.run(() => summonGolem(dimension, head, axis, player));
+// ============================================================
+//  Tod & Entfernen
+// ============================================================
+world.afterEvents.entityDie.subscribe(
+  (ev) => {
+    const pid = registry.remove(ev.deadEntity.id);
+    if (pid === undefined) return;
+    const player = onlinePlayer(pid);
+    if (player) {
+      player.sendMessage(`§7Einer deiner Holzgolems ist gefallen. §6Bestand: ${registry.count(pid)}/${registry.limit(pid)}`);
+      updateCardFor(pid);
+    }
+  },
+  { entityTypes: [GOLEM_ID] }
+);
+
+// Ist das Gebiet um einen Ort geladen? (getBlock wirft/liefert nichts, wenn nicht)
+function isAreaLoaded(dim, loc) {
+  for (const [dx, dz] of [[0, 0], [4, 0], [-4, 0], [0, 4], [0, -4]]) {
+    try {
+      if (!dim.getBlock({ x: loc.x + dx, y: loc.y, z: loc.z + dz })) return false;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Abgleich: Golems, die im Bestand stehen, aber trotz geladenem Gebiet
+ * mehrfach nicht auffindbar sind (z. B. per Befehl entfernt), werden
+ * ausgetragen. Golems in entladenen Chunks bleiben unangetastet.
+ */
+function reconcile() {
+  for (const pid of registry.players()) {
+    let changed = false;
+    for (const g of registry.golems(pid)) {
+      const e = world.getEntity(g.eid);
+      if (e?.isValid) {
+        registry.seen(g.eid, e.location, e.dimension.id);
+        continue;
+      }
+      let dim;
+      try {
+        dim = world.getDimension(g.d);
+      } catch {
+        continue;
+      }
+      if (isAreaLoaded(dim, g) && registry.missed(g.eid) !== undefined) changed = true;
+    }
+    if (changed) updateCardFor(pid);
+  }
+}
+
+// ============================================================
+//  Karte: Beitreten/Respawn, Benutzen
+// ============================================================
+world.afterEvents.playerSpawn.subscribe((ev) => {
+  const pid = ev.player.id;
+  if (!registry.cardGiven(pid)) return;
+  // kurz warten, bis das Inventar geladen ist
+  system.runTimeout(() => updateCardFor(pid, true), 20);
+});
+
+world.afterEvents.itemUse.subscribe((ev) => {
+  if (ev.itemStack?.typeId !== CARD_ID) return;
+  const player = ev.source;
+  const pid = player.id;
+  const t = cardText(registry.count(pid), registry.limit(pid));
+  const lines = ["§6=== HOLZGOLEM-LIVE-CARD ===", ...t.lore.slice(0, 2)];
+  for (const g of registry.golems(pid)) {
+    lines.push(`§7- Golem bei ${g.x} ${g.y} ${g.z} (${g.d.replace("minecraft:", "")})`);
+  }
+  player.sendMessage(lines.join("\n"));
+  refreshCard(player, registry.count(pid), registry.limit(pid));
 });
 
 // ============================================================
-//  Schutzzone, Heimweg & Photosynthese
+//  Schutzzone, Heimweg, Photosynthese & Bestandspflege
 // ============================================================
 function getHome(golem) {
   const x = golem.getDynamicProperty("home_x");
@@ -139,6 +249,14 @@ function getHome(golem) {
   };
 }
 
+// Golem mit Besitzer, der (noch) nicht im Bestand steht -> wieder aufnehmen
+function adopt(golem) {
+  const pid = golem.getDynamicProperty("owner_id");
+  if (typeof pid !== "string" || registry.ownerOf(golem.id) !== undefined) return;
+  registry.add(pid, String(golem.getDynamicProperty("owner") ?? ""), golem.id, golem.location, golem.dimension.id);
+  updateCardFor(pid);
+}
+
 let tick = 0;
 system.runInterval(() => {
   tick++;
@@ -156,6 +274,7 @@ system.runInterval(() => {
     }
     for (const golem of golems) {
       if (!golem.isValid) continue;
+      adopt(golem);
       const home = getHome(golem);
       const l = golem.location;
       const dist = Math.hypot(l.x - home.x, l.z - home.z);
@@ -181,6 +300,23 @@ system.runInterval(() => {
           safeParticle(golem.dimension, "minecraft:villager_happy", { x: l.x, y: l.y + 2.6, z: l.z });
         }
       }
+    }
+  }
+
+  const players = world.getAllPlayers();
+
+  // Bestand abgleichen und Karten aktualisieren (alle 5 s)
+  if (tick % 5 === 0) {
+    reconcile();
+    for (const player of players) {
+      if (registry.cardGiven(player.id)) refreshCard(player, registry.count(player.id), registry.limit(player.id));
+    }
+  }
+
+  // Live-Anzeige, solange die Karte in der Hand ist
+  for (const player of players) {
+    if (isHoldingCard(player)) {
+      player.onScreenDisplay.setActionBar(cardText(registry.count(player.id), registry.limit(player.id)).line);
     }
   }
 }, 20); // jede Sekunde
