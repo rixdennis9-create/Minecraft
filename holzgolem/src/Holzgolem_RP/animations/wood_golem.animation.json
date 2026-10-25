@@ -1,0 +1,44 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.wood_golem.attack": {
+      "loop": true,
+      "bones": {
+        "arm0": { "rotation": ["-100 * math.sin(variable.attack_time * 180.0)", 0.0, 0.0] },
+        "arm1": { "rotation": ["-100 * math.sin(variable.attack_time * 180.0)", 0.0, 0.0] }
+      }
+    },
+    "animation.wood_golem.move": {
+      "loop": true,
+      "bones": {
+        "arm0": { "rotation": ["-variable.wg_swing * 2.0", 0.0, 0.0] },
+        "arm1": { "rotation": ["variable.wg_swing * 2.0", 0.0, 0.0] }
+      }
+    },
+    "animation.wood_golem.move_to_target": {
+      "loop": true,
+      "bones": {
+        "arm0": { "rotation": ["((math.abs(math.mod(query.modified_distance_moved, 13) - 6.5) - 3.25) / 2.25) * 30.0", 0.0, 0.0] },
+        "arm1": { "rotation": ["((math.abs(math.mod(query.modified_distance_moved, 13) - 6.5) - 3.25) / 2.25) * -30.0", 0.0, 0.0] }
+      }
+    },
+    "animation.wood_golem.walk": {
+      "loop": true,
+      "bones": {
+        "body": { "rotation": [0.0, 0.0, "variable.wg_swing / 1.5"] },
+        "head": { "rotation": [0.0, 0.0, "variable.wg_swing / 1.5"] },
+        "leg0": { "rotation": ["variable.wg_swing * 6.0", 0.0, 0.0] },
+        "leg1": { "rotation": ["-variable.wg_swing * 6.0", 0.0, 0.0] }
+      }
+    },
+    "animation.wood_golem.walk_to_target": {
+      "loop": true,
+      "bones": {
+        "body": { "rotation": [0.0, 0.0, "2.0 * (math.abs(math.mod(query.modified_distance_moved + 6, 13.0) - 6.5) - 3.25)"] },
+        "head": { "rotation": [0.0, 0.0, "2.0 * (math.abs(math.mod(query.modified_distance_moved + 6, 13.0) - 6.5) - 3.25)"] },
+        "leg0": { "rotation": ["math.cos(query.modified_distance_moved * 38.17) * 40.0", 0.0, 0.0] },
+        "leg1": { "rotation": ["math.cos(query.modified_distance_moved * 38.17 + 180) * 40.0", 0.0, 0.0] }
+      }
+    }
+  }
+}

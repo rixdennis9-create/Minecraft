@@ -129,9 +129,14 @@ function getHome(golem) {
     golem.setDynamicProperty("home_y", l.y);
     golem.setDynamicProperty("home_z", l.z);
     golem.setDynamicProperty("home_dim", golem.dimension.id);
-    return { x: l.x, y: l.y, z: l.z };
+    return { x: l.x, y: l.y, z: l.z, dim: golem.dimension.id };
   }
-  return { x, y: golem.getDynamicProperty("home_y"), z: golem.getDynamicProperty("home_z") };
+  return {
+    x,
+    y: golem.getDynamicProperty("home_y"),
+    z: golem.getDynamicProperty("home_z"),
+    dim: golem.getDynamicProperty("home_dim") ?? golem.dimension.id,
+  };
 }
 
 let tick = 0;
@@ -155,11 +160,17 @@ system.runInterval(() => {
       const l = golem.location;
       const dist = Math.hypot(l.x - home.x, l.z - home.z);
 
-      // zu weit weg (z. B. weggeschubst, gelockt, Fluss runtergetrieben) -> zurück nach Hause
-      if (dist > LEASH_RADIUS) {
+      // zu weit weg (z. B. weggeschubst, gelockt, Fluss runtergetrieben, durchs Portal) -> zurück nach Hause
+      if (home.dim !== golem.dimension.id || dist > LEASH_RADIUS) {
+        const homeDim = world.getDimension(home.dim);
         safeParticle(golem.dimension, "minecraft:villager_happy", { x: l.x, y: l.y + 1.5, z: l.z });
-        golem.teleport(home);
-        safeParticle(golem.dimension, "minecraft:villager_happy", { x: home.x, y: home.y + 1.5, z: home.z });
+        try {
+          golem.teleport({ x: home.x, y: home.y, z: home.z }, { dimension: homeDim });
+        } catch {
+          continue; // Zuhause gerade nicht geladen -> nächste Sekunde nochmal
+        }
+        safeParticle(homeDim, "minecraft:villager_happy", { x: home.x, y: home.y + 1.5, z: home.z });
+        continue;
       }
 
       // Photosynthese: tagsüber in der Oberwelt langsam heilen (alle 5 s, 1 HP)
