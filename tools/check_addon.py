@@ -63,6 +63,10 @@ def main(bp, rp):
                 err(f"BP-Abhängigkeit {dep['uuid']} zeigt nicht auf das RP")
             elif dep["version"] != rpm["header"]["version"]:
                 err(f"BP-Abhängigkeit Version {dep['version']} != RP-Version {rpm['header']['version']}")
+    for label, man in (("BP", bpm), ("RP", rpm)):
+        v = "v" + ".".join(map(str, man["header"]["version"]))
+        if not man["header"]["name"].endswith(v):
+            err(f"{label}-Name '{man['header']['name']}' endet nicht auf '{v}' (tools/build_addon.py ausführen)")
     for m in bpm["modules"]:
         if m["type"] == "script" and not (bp / m["entry"]).is_file():
             err(f"Script-Entry fehlt: {m['entry']}")

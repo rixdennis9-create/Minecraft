@@ -1,10 +1,10 @@
 {
   "format_version": 2,
   "header": {
-    "name": "Holzgolem (Ressourcen)",
+    "name": "Holzgolem (Ressourcen) v1.1.1",
     "description": "Texturen & Modell für den Holzgolem",
     "uuid": "555076e1-36c5-49b6-8f4f-e2e46d1f7b18",
-    "version": [1, 1, 0],
+    "version": [1, 1, 1],
     "min_engine_version": [1, 21, 90]
   },
   "modules": [

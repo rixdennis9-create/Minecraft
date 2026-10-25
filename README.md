@@ -44,7 +44,11 @@ Eine senkrechte Säule, 9 Blöcke hoch – im Überlebensmodus einfach Block fü
 node --import ./tests/register.mjs --test tests/holzgolem.test.mjs   # Script-Logik gegen eine API-Attrappe
 python3 tools/check_addon.py holzgolem/src/Holzgolem_BP holzgolem/src/Holzgolem_RP   # Pack-Konsistenz
 ```
-Bei jedem Update `header.version` in beiden `manifest.json` (und die RP-Abhängigkeit im BP) hochzählen.
+Neue Version bauen – zählt die Version hoch, schreibt sie in die Pack-Namen (z. B. „Holzgolem v1.1.1“),
+hält die RP-Abhängigkeit im BP synchron und baut `.mcaddon` + `.mcpack` neu:
+```
+python3 tools/build_addon.py patch   # oder minor / major; ohne Argument nur neu bauen
+```
 
 ### In-Game-Checkliste (nur im echten Spiel prüfbar)
 1. Survival: 5 Holz + 4 Stämme → genau ein Golem, Säule verschwindet
