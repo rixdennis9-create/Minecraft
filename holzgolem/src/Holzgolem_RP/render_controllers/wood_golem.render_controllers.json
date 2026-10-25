@@ -1,0 +1,25 @@
+{
+  "format_version": "1.8.0",
+  "render_controllers": {
+    "controller.render.wood_golem": {
+      "geometry": "Geometry.default",
+      "materials": [{ "*": "Material.default" }],
+      "textures": ["Texture.default"]
+    },
+    "controller.render.wood_golem_cracks": {
+      "arrays": {
+        "textures": {
+          "Array.cracks": [
+            "Texture.cracked_high",
+            "Texture.cracked_med",
+            "Texture.cracked_low",
+            "Texture.cracked_none"
+          ]
+        }
+      },
+      "geometry": "Geometry.default",
+      "materials": [{ "*": "Material.default" }],
+      "textures": ["Array.cracks[math.clamp(query.health / 15, 0, 3)]"]
+    }
+  }
+}

@@ -1,0 +1,139 @@
+{
+  "format_version": "1.21.90",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "dr:wood_golem",
+      "is_summonable": true,
+      "is_spawnable": true
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["wood_golem", "golem", "mob"] },
+      "minecraft:health": { "value": 60, "max": 60 },
+      "minecraft:attack": { "damage": { "range_min": 5, "range_max": 12 } },
+      "minecraft:movement": { "value": 0.25 },
+      "minecraft:movement.basic": {},
+      "minecraft:jump.static": {},
+      "minecraft:can_climb": {},
+      "minecraft:physics": {},
+      "minecraft:persistent": {},
+      "minecraft:nameable": {},
+      "minecraft:leashable": {},
+      "minecraft:pushable_by_block": {},
+      "minecraft:pushable_by_entity": {},
+      "minecraft:is_hidden_when_invisible": {},
+      "minecraft:conditional_bandwidth_optimization": {},
+      "minecraft:collision_box": { "width": 1.4, "height": 2.9 },
+      "minecraft:knockback_resistance": { "value": 0.8 },
+      "minecraft:follow_range": { "value": 48 },
+      "minecraft:loot": { "table": "loot_tables/entities/wood_golem.json" },
+      "minecraft:navigation.walk": {
+        "avoid_damage_blocks": true,
+        "avoid_water": true,
+        "can_path_over_water": false,
+        "can_open_doors": false
+      },
+
+      "minecraft:home": {
+        "restriction_radius": 50,
+        "restriction_type": "all_movement"
+      },
+      "minecraft:behavior.move_towards_home_restriction": {
+        "priority": 4,
+        "speed_multiplier": 0.8
+      },
+
+      "minecraft:damage_sensor": {
+        "triggers": [
+          { "cause": "fall", "deals_damage": "no" },
+          { "cause": "fire", "damage_multiplier": 2.0 },
+          { "cause": "fire_tick", "damage_multiplier": 2.0 },
+          { "cause": "lava", "damage_multiplier": 2.0 },
+          {
+            "on_damage": {
+              "filters": { "test": "is_family", "subject": "other", "value": "player" }
+            },
+            "deals_damage": "no"
+          }
+        ]
+      },
+
+      "minecraft:interact": {
+        "interactions": [
+          {
+            "health_amount": 15,
+            "interact_text": "action.interact.repair",
+            "use_item": true,
+            "swing": true,
+            "play_sounds": "irongolem.repair",
+            "on_interact": {
+              "filters": {
+                "all_of": [
+                  { "test": "is_family", "subject": "other", "value": "player" },
+                  { "test": "is_missing_health" },
+                  {
+                    "any_of": [
+                      { "test": "has_equipment", "subject": "other", "domain": "hand", "value": "oak_planks" },
+                      { "test": "has_equipment", "subject": "other", "domain": "hand", "value": "spruce_planks" },
+                      { "test": "has_equipment", "subject": "other", "domain": "hand", "value": "birch_planks" },
+                      { "test": "has_equipment", "subject": "other", "domain": "hand", "value": "jungle_planks" },
+                      { "test": "has_equipment", "subject": "other", "domain": "hand", "value": "acacia_planks" },
+                      { "test": "has_equipment", "subject": "other", "domain": "hand", "value": "dark_oak_planks" },
+                      { "test": "has_equipment", "subject": "other", "domain": "hand", "value": "mangrove_planks" },
+                      { "test": "has_equipment", "subject": "other", "domain": "hand", "value": "cherry_planks" },
+                      { "test": "has_equipment", "subject": "other", "domain": "hand", "value": "pale_oak_planks" },
+                      { "test": "has_equipment", "subject": "other", "domain": "hand", "value": "bamboo_planks" },
+                      { "test": "has_equipment", "subject": "other", "domain": "hand", "value": "crimson_planks" },
+                      { "test": "has_equipment", "subject": "other", "domain": "hand", "value": "warped_planks" }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+
+      "minecraft:behavior.melee_box_attack": { "priority": 1, "track_target": true },
+      "minecraft:behavior.hurt_by_target": {
+        "priority": 2,
+        "entity_types": {
+          "filters": {
+            "all_of": [
+              { "test": "is_family", "subject": "other", "operator": "not", "value": "player" },
+              { "test": "is_family", "subject": "other", "operator": "not", "value": "creeper" }
+            ]
+          }
+        }
+      },
+      "minecraft:behavior.move_towards_target": {
+        "priority": 2,
+        "speed_multiplier": 1.0,
+        "within_radius": 32
+      },
+      "minecraft:behavior.nearest_attackable_target": {
+        "priority": 3,
+        "must_see": true,
+        "must_reach": true,
+        "within_radius": 32,
+        "entity_types": [
+          {
+            "filters": {
+              "all_of": [
+                { "test": "is_family", "subject": "other", "value": "monster" },
+                { "test": "is_family", "subject": "other", "operator": "not", "value": "creeper" }
+              ]
+            },
+            "max_dist": 32
+          }
+        ]
+      },
+      "minecraft:behavior.random_stroll": { "priority": 6, "speed_multiplier": 0.6, "xz_dist": 12 },
+      "minecraft:behavior.look_at_player": {
+        "priority": 7,
+        "look_distance": 8,
+        "look_time": { "min": 1, "max": 3 }
+      },
+      "minecraft:behavior.random_look_around": { "priority": 8 }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Holzgolem",
+    "description": "Bau einen Golem aus Holz – er beschützt 50 Blöcke um seinen Beschwörungsort",
+    "uuid": "4f1af527-cfc5-4f27-b185-08025465b228",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 90]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "022baa6e-0bef-48dc-bf58-277aaf053695",
+      "version": [1, 0, 0]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "18a44089-da80-488b-8589-465098a35825",
+      "version": [1, 0, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    { "module_name": "@minecraft/server", "version": "2.0.0" },
+    { "uuid": "555076e1-36c5-49b6-8f4f-e2e46d1f7b18", "version": [1, 0, 0] }
+  ]
+}
