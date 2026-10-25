@@ -4,7 +4,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { world, advance, resetWorld, placeBlock, addPlayer } from "@minecraft/server";
-import { findColumn, isWoodBlock, isRawLog } from "../holzgolem/src/Holzgolem_BP/scripts/structure.js";
+import { findColumn, isPlank, isTopBlock } from "../holzgolem/src/Holzgolem_BP/scripts/structure.js";
 import "../holzgolem/src/Holzgolem_BP/scripts/main.js";
 
 const GOLEM = "dr:wood_golem";
@@ -12,83 +12,77 @@ const CARD = "dr:golem_card";
 const ow = () => world.getDimension("overworld");
 
 /** Baut eine Säule von unten nach oben, Block für Block wie ein Spieler. */
-function build(player, dim, base, wood = "minecraft:oak_wood", log = "minecraft:oak_log", woodCount = 5, logCount = 4) {
+function build(player, dim, base, plank = "minecraft:oak_planks", top = "minecraft:stone", plankCount = 4, topCount = 1) {
   let y = base.y;
-  for (let i = 0; i < woodCount; i++) placeBlock(player, dim, { x: base.x, y: y++, z: base.z }, wood);
-  for (let i = 0; i < logCount; i++) placeBlock(player, dim, { x: base.x, y: y++, z: base.z }, log);
+  for (let i = 0; i < plankCount; i++) placeBlock(player, dim, { x: base.x, y: y++, z: base.z }, plank);
+  for (let i = 0; i < topCount; i++) placeBlock(player, dim, { x: base.x, y: y++, z: base.z }, top);
 }
 
 const golems = () => world.entities.filter((e) => e.typeId === GOLEM && e.alive && !e.removed);
 const blockAt = (dim, x, y, z) => dim.getBlock({ x, y, z }).typeId;
 const cards = (p) => p.inventory.slots.filter((s) => s?.typeId === CARD);
-const columnIntact = (dim, base, n = 9) =>
+const columnIntact = (dim, base, n = 5) =>
   Array.from({ length: n }, (_, i) => blockAt(dim, base.x, base.y + i, base.z)).every((t) => t !== "minecraft:air");
 const seconds = (s) => advance(20 * s);
 
 beforeEach(() => resetWorld());
 
-test("Blockerkennung: Holz, Stämme, Bretter", () => {
-  assert.ok(isWoodBlock("minecraft:oak_wood"));
-  assert.ok(isWoodBlock("minecraft:stripped_cherry_wood"));
-  assert.ok(isWoodBlock("minecraft:crimson_hyphae"));
-  assert.ok(!isWoodBlock("minecraft:oak_log"));
-  assert.ok(!isWoodBlock("minecraft:oak_planks"));
-  assert.ok(isRawLog("minecraft:oak_log"));
-  assert.ok(isRawLog("minecraft:pale_oak_log"));
-  assert.ok(isRawLog("minecraft:warped_stem"));
-  assert.ok(!isRawLog("minecraft:stripped_oak_log"));
-  assert.ok(!isRawLog("minecraft:oak_planks"));
-  assert.ok(!isRawLog("minecraft:oak_wood"));
+test("Blockerkennung: Bretter, Stein", () => {
+  assert.ok(isPlank("minecraft:oak_planks"));
+  assert.ok(isPlank("minecraft:crimson_planks"));
+  assert.ok(isPlank("minecraft:bamboo_planks"));
+  assert.ok(!isPlank("minecraft:oak_log"));
+  assert.ok(!isPlank("minecraft:oak_wood"));
+  assert.ok(!isPlank("minecraft:oak_slab"));
+  assert.ok(isTopBlock("minecraft:stone"));
+  assert.ok(isTopBlock("minecraft:cobblestone"));
+  assert.ok(!isTopBlock("minecraft:stone_bricks"));
+  assert.ok(!isTopBlock("minecraft:oak_planks"));
 });
 
-test("1) gültige Säule (5 Holz + 4 Stämme) beschwört genau einen Golem", () => {
+test("1) gültige Säule (4 Bretter + Stein) beschwört genau einen Golem", () => {
   const p = addPlayer("Dennis");
   const base = { x: 10, y: 64, z: 10 };
-  build(p, ow(), base, "minecraft:oak_wood", "minecraft:oak_log", 5, 3);
-  assert.equal(golems().length, 0, "vor dem letzten Block darf nichts passieren");
-  placeBlock(p, ow(), { x: 10, y: 72, z: 10 }, "minecraft:oak_log");
+  build(p, ow(), base, "minecraft:oak_planks", "minecraft:stone", 4, 0);
+  assert.equal(golems().length, 0, "vor dem Stein darf nichts passieren");
+  placeBlock(p, ow(), { x: 10, y: 68, z: 10 }, "minecraft:stone");
   assert.equal(golems().length, 1);
   const g = golems()[0];
   assert.deepEqual(g.location, { x: 10.5, y: 64, z: 10.5 });
   assert.equal(g.getDynamicProperty("owner_id"), p.id);
-  for (let y = 64; y <= 72; y++) assert.equal(blockAt(ow(), 10, y, 10), "minecraft:air");
+  for (let y = 64; y <= 68; y++) assert.equal(blockAt(ow(), 10, y, 10), "minecraft:air");
   // weitere Events / Ticks erzeugen keinen zweiten Golem
   seconds(10);
   assert.equal(golems().length, 1);
 });
 
-test("1b) gemischte Holzarten und Bauen von oben nach unten funktionieren", () => {
+test("1b) gemischte Bretter, Bruchstein und Bauen von oben nach unten funktionieren", () => {
   const p = addPlayer("Dennis");
   const d = ow();
-  const ids = ["minecraft:birch_wood", "minecraft:spruce_wood", "minecraft:stripped_oak_wood", "minecraft:crimson_hyphae", "minecraft:cherry_wood",
-    "minecraft:jungle_log", "minecraft:mangrove_log", "minecraft:warped_stem", "minecraft:dark_oak_log"];
-  // erst die oberen 8 Blöcke (in der Luft gesetzt), der unterste zuletzt
-  for (let i = 8; i >= 1; i--) placeBlock(p, d, { x: 0, y: 70 + i, z: 0 }, ids[i]);
+  const ids = ["minecraft:birch_planks", "minecraft:spruce_planks", "minecraft:crimson_planks", "minecraft:cherry_planks", "minecraft:cobblestone"];
+  // erst Stein und obere Bretter (in der Luft gesetzt), das unterste Brett zuletzt
+  for (let i = 4; i >= 1; i--) placeBlock(p, d, { x: 0, y: 70 + i, z: 0 }, ids[i]);
   assert.equal(golems().length, 0);
   placeBlock(p, d, { x: 0, y: 70, z: 0 }, ids[0]);
   assert.equal(golems().length, 1);
 });
 
-test("2) falsche Anzahl Holzblöcke verhindert das Spawnen", () => {
+test("2) falsche Anzahl Bretter verhindert das Spawnen", () => {
   const p = addPlayer("Dennis");
-  build(p, ow(), { x: 0, y: 64, z: 0 }, undefined, undefined, 4, 4);
-  assert.equal(golems().length, 0);
-  assert.ok(columnIntact(ow(), { x: 0, y: 64, z: 0 }, 8));
-  build(p, ow(), { x: 5, y: 64, z: 5 }, undefined, undefined, 6, 4);
-  assert.equal(golems().length, 0, "6 Holzblöcke sind auch falsch");
-  assert.ok(columnIntact(ow(), { x: 5, y: 64, z: 5 }, 10));
-  // 5 Stämme: von oben nach unten bauen (von unten würde schon der 4. Stamm auslösen – gewollt)
-  for (let i = 9; i >= 0; i--) placeBlock(p, ow(), { x: 9, y: 64 + i, z: 9 }, i < 5 ? "minecraft:oak_wood" : "minecraft:oak_log");
-  assert.equal(golems().length, 0, "5 Stämme sind auch falsch");
-  assert.ok(columnIntact(ow(), { x: 9, y: 64, z: 9 }, 10));
+  build(p, ow(), { x: 0, y: 64, z: 0 }, undefined, undefined, 3, 1);
+  assert.equal(golems().length, 0, "3 Bretter sind zu wenig");
+  assert.ok(columnIntact(ow(), { x: 0, y: 64, z: 0 }, 4));
+  build(p, ow(), { x: 5, y: 64, z: 5 }, undefined, undefined, 5, 1);
+  assert.equal(golems().length, 0, "5 Bretter sind zu viele");
+  assert.ok(columnIntact(ow(), { x: 5, y: 64, z: 5 }, 6));
 });
 
-test("3) Bretter oder entrindete Stämme statt Stämmen verhindern das Spawnen", () => {
+test("3) Stämme statt Brettern oder falscher Stein verhindern das Spawnen", () => {
   const p = addPlayer("Dennis");
-  build(p, ow(), { x: 0, y: 64, z: 0 }, "minecraft:oak_wood", "minecraft:oak_planks");
-  build(p, ow(), { x: 4, y: 64, z: 0 }, "minecraft:oak_wood", "minecraft:stripped_oak_log");
-  build(p, ow(), { x: 8, y: 64, z: 0 }, "minecraft:oak_planks", "minecraft:oak_log");
-  build(p, ow(), { x: 12, y: 64, z: 0 }, "minecraft:oak_log", "minecraft:oak_log");
+  build(p, ow(), { x: 0, y: 64, z: 0 }, "minecraft:oak_log", "minecraft:stone");
+  build(p, ow(), { x: 4, y: 64, z: 0 }, "minecraft:oak_wood", "minecraft:stone");
+  build(p, ow(), { x: 8, y: 64, z: 0 }, "minecraft:oak_planks", "minecraft:stone_bricks");
+  build(p, ow(), { x: 12, y: 64, z: 0 }, "minecraft:oak_planks", "minecraft:dirt");
   assert.equal(golems().length, 0);
   assert.equal(p.messages.length, 0);
 });
@@ -221,7 +215,7 @@ test("10) nach Neuladen: kein Doppelzählen, verlorene Daten werden wiederherges
 test("11-teilweise) Nether: Bau funktioniert auch dort", () => {
   const p = addPlayer("Dennis", "nether");
   const nether = world.getDimension("nether");
-  build(p, nether, { x: 3, y: 40, z: 3 }, "minecraft:crimson_hyphae", "minecraft:crimson_stem");
+  build(p, nether, { x: 3, y: 40, z: 3 }, "minecraft:crimson_planks", "minecraft:cobblestone");
   assert.equal(golems().length, 1);
   assert.equal(golems()[0].getDynamicProperty("home_dim"), "minecraft:nether");
 });
@@ -237,8 +231,8 @@ test("Karte in der Hand zeigt den Bestand live in der Actionbar", () => {
 
 test("findColumn findet die Säule von jeder Position aus", () => {
   const blocks = new Map();
-  for (let i = 0; i < 5; i++) blocks.set(64 + i, "minecraft:oak_wood");
-  for (let i = 5; i < 9; i++) blocks.set(64 + i, "minecraft:oak_log");
+  for (let i = 0; i < 4; i++) blocks.set(64 + i, "minecraft:oak_planks");
+  blocks.set(68, "minecraft:stone");
   const typeAt = (x, y) => (x === 0 ? blocks.get(y) : undefined);
-  for (let y = 64; y <= 72; y++) assert.deepEqual(findColumn(typeAt, { x: 0, y, z: 0 }), { x: 0, y: 64, z: 0 });
+  for (let y = 64; y <= 68; y++) assert.deepEqual(findColumn(typeAt, { x: 0, y, z: 0 }), { x: 0, y: 64, z: 0 });
 });

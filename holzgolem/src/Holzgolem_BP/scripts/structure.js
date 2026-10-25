@@ -2,41 +2,35 @@
 //  Bauplan des Holzgolems (reine Logik, ohne Minecraft-Import –
 //  dadurch auch außerhalb des Spiels testbar)
 //
-//   y+8  [S]   S = unverarbeiteter Holzstamm (4x, z. B. Eichenstamm)
-//   y+7  [S]
-//   y+6  [S]
-//   y+5  [S]
-//   y+4  [H]   H = Holz (voller Holzblock, 5x, z. B. Eichenholz)
-//   y+3  [H]
-//   y+2  [H]
-//   y+1  [H]
-//   y+0  [H]   <- hier erscheint der Golem
+//   y+4  [X]   X = Stein (oder Bruchstein) – zuletzt draufsetzen
+//   y+3  [B]   B = Holzbretter (4x, jede Holzart, auch gemischt)
+//   y+2  [B]
+//   y+1  [B]
+//   y+0  [B]   <- hier erscheint der Golem
 // ============================================================
 
-export const WOOD_COUNT = 5;
-export const LOG_COUNT = 4;
-export const HEIGHT = WOOD_COUNT + LOG_COUNT;
+export const PLANK_COUNT = 4;
+export const TOP_COUNT = 1;
+export const HEIGHT = PLANK_COUNT + TOP_COUNT;
 // Der Golem ist ~1,4 Blöcke breit und ~2,9 hoch: um die unteren
 // 3 Ebenen der Säule muss es frei sein.
 export const CLEARANCE_HEIGHT = 3;
 
-/** Voller Holzblock: Eichenholz, Fichtenholz, … (auch entrindet) und Nether-Hyphen. */
-export function isWoodBlock(typeId) {
-  return typeof typeId === "string" && (typeId.endsWith("_wood") || typeId.endsWith("_hyphae"));
+const TOP_BLOCKS = new Set(["minecraft:stone", "minecraft:cobblestone"]);
+
+/** Holzbretter: Eichenbretter, Fichtenbretter, …, Karmesin-/Wirrbretter, Bambusbretter. */
+export function isPlank(typeId) {
+  return typeof typeId === "string" && typeId.endsWith("_planks");
 }
 
-/** Unverarbeiteter Holzstamm: Eichenstamm, …, Karmesin-/Wirrstiel – nicht entrindet. */
-export function isRawLog(typeId) {
-  return (
-    typeof typeId === "string" &&
-    (typeId.endsWith("_log") || typeId.endsWith("_stem")) &&
-    !typeId.includes("stripped_")
-  );
+/** Abschluss oben: Stein oder Bruchstein. */
+export function isTopBlock(typeId) {
+  return TOP_BLOCKS.has(typeId);
 }
 
 /** Kann der zuletzt gesetzte Block überhaupt Teil des Bauplans sein? */
 export function isStructureBlock(typeId) {
-  return isWoodBlock(typeId) || isRawLog(typeId);
+  return isPlank(typeId) || isTopBlock(typeId);
 }
 
 /**
@@ -44,8 +38,7 @@ export function isStructureBlock(typeId) {
  * typeAt(x, y, z) liefert die Block-ID oder undefined (z. B. nicht geladen).
  * Gibt die unterste Position zurück oder undefined.
  *
- * Exakt 5 + 4: Ein sechster Holzblock darunter oder ein fünfter Stamm
- * darüber macht den Bau ungültig.
+ * Exakt 4 + 1: Ein fünftes Brett darunter macht den Bau ungültig.
  */
 export function findColumn(typeAt, pos) {
   for (let k = 0; k < HEIGHT; k++) {
@@ -53,17 +46,16 @@ export function findColumn(typeAt, pos) {
     let ok = true;
     for (let i = 0; i < HEIGHT && ok; i++) {
       const id = typeAt(pos.x, baseY + i, pos.z);
-      ok = i < WOOD_COUNT ? isWoodBlock(id) : isRawLog(id);
+      ok = i < PLANK_COUNT ? isPlank(id) : isTopBlock(id);
     }
     if (!ok) continue;
-    if (isWoodBlock(typeAt(pos.x, baseY - 1, pos.z))) continue;
-    if (isRawLog(typeAt(pos.x, baseY + HEIGHT, pos.z))) continue;
+    if (isPlank(typeAt(pos.x, baseY - 1, pos.z))) continue;
     return { x: pos.x, y: baseY, z: pos.z };
   }
   return undefined;
 }
 
-/** Alle 9 Positionen der Säule (von unten nach oben). */
+/** Alle Positionen der Säule (von unten nach oben). */
 export function columnPositions(base) {
   const out = [];
   for (let i = 0; i < HEIGHT; i++) out.push({ x: base.x, y: base.y + i, z: base.z });

@@ -9,20 +9,16 @@ https://rixdennis9-create.github.io/minecraft/Holzgolem.mcaddon
 
 Oder die Download-Seite: https://rixdennis9-create.github.io/minecraft/
 
-### Bauplan (ab Version 1.1.0)
-Eine senkrechte Säule, 9 Blöcke hoch – im Überlebensmodus einfach Block für Block setzen:
+### Bauplan (ab Version 1.2.0)
+Eine senkrechte Säule, 5 Blöcke hoch – im Überlebensmodus einfach Block für Block setzen:
 ```
-[S]   S = Holzstamm, unverarbeitet (4x) – z. B. Eichenstamm, Karmesinstiel
-[S]       nicht: Bretter, entrindete Stämme, Holz
-[S]
-[S]
-[H]   H = Holz, voller Holzblock (5x) – z. B. Eichenholz (4 Stämme -> 3 Holz),
-[H]       auch entrindetes Holz und Hyphen
-[H]
-[H]
-[H]   <- hier erscheint der Golem
+[X]   X = Stein oder Bruchstein (1x) – als Letztes draufsetzen
+[B]   B = Holzbretter (4x) – jede Holzart, auch gemischt
+[B]
+[B]
+[B]   <- hier erscheint der Golem
 ```
-- Holzarten dürfen gemischt werden. Genau 5 + 4 – ein 6. Holzblock darunter oder ein 5. Stamm darüber macht den Bau ungültig.
+- Genau 4 Bretter – ein 5. Brett darunter macht den Bau ungültig. Stämme, Holz, Steinziegel o. Ä. zählen nicht.
 - Rund um die **unteren 3 Blöcke** der Säule (je 8 Nachbarn) muss Platz sein (Luft, Gras, Blumen, Schnee, Fackeln …). Sonst bleibt das Bauwerk stehen und es kommt eine Meldung.
 - Der Bau wird erst verbraucht, wenn der Golem wirklich erschienen ist.
 
@@ -51,9 +47,9 @@ python3 tools/build_addon.py patch   # oder minor / major; ohne Argument nur neu
 ```
 
 ### In-Game-Checkliste (nur im echten Spiel prüfbar)
-1. Survival: 5 Holz + 4 Stämme → genau ein Golem, Säule verschwindet
-2. 4 oder 6 Holz → nichts passiert
-3. Bretter statt Stämme → nichts passiert
+1. Survival: 4 Bretter + Stein → genau ein Golem, Säule verschwindet
+2. 3 oder 5 Bretter → nichts passiert
+3. Stämme statt Brettern / Steinziegel statt Stein → nichts passiert
 4. Stein direkt neben der Säule → Meldung „Zu wenig Platz“, Säule bleibt
 5. Erster Golem → genau eine Live-Card
 6. Zweiter Golem klappt, Karte zeigt 2/2
